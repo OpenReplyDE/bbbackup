@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>de.openreply.bbbackup.plist</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>sh</string>
+    <string>/Users/admin/Backup/bbbackup.sh</string>
+  </array>
+
+  <key>Nice</key>
+  <integer>1</integer>
+
+  <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>22</integer>
+        <key>Minute</key>
+        <integer>05</integer>
+    </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/admin/Backup/Logs/log_bbbackup.err</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/admin/Backup/Logs/log_bbbackup.out</string>
+</dict>
+</plist>
