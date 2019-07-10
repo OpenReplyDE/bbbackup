@@ -168,7 +168,7 @@ bbbackup - clone all repos from a given BitBucket team/user
 Copyright (C) 2019  Helge Staedtler from Open Reply GmbH
 This program comes with ABSOLUTELY NO WARRANTY
 This is free software, and you are welcome to redistribute it
-under certain conditions. DETAILS in the LICENSE.md file!
+under certain conditions. DETAILS in the LICENSE file!
 
 optional arguments:
   -h, --help            show this help message and exit
