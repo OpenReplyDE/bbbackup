@@ -1237,7 +1237,7 @@ def bitbucket_clone( repos ):
                 num_of_tries +=1
                 mark_repo_sync( BACKUP_LOCAL_REPO_PATH )
                 try:
-                    REMOTE_REPO_PATH = 'git@bitbucket.org:{}/{}.git'.format( CONFIG_TEAM, repo_name)
+                    REMOTE_REPO_PATH = 'git@bitbucket.org:{}/{}.git'.format( CONFIG_TEAM, repo['slug'])
                     Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH )
                     was_cloning_fail = False
                     success_clone = success_clone + 1
