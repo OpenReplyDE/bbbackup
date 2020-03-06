@@ -9,7 +9,7 @@
       Author: Helge Staedtler
       E-Mail: h.staedtler@reply.de
      Company: Open Reply GmbH, Bremen/Germany
-     Version: 1.3
+     Version: 1.4
     Language: Python 3
      License: MIT License (see https://choosealicense.com/licenses/mit/)
 
@@ -80,7 +80,7 @@ import math
 import traceback
 
 # CONSTANT VALUES
-APP_VERSION = "v1.3"
+APP_VERSION = "v1.4"
 APP_PATH = os.path.dirname( os.path.abspath( __file__ ) )
 APP_CONFIG_FILE = 'bbbackup.cfg'
 APP_LOGO = '''
@@ -92,7 +92,7 @@ APP_LOGO = '''
                                   '''
 
 APP_COPYRIGHT_NOTICE = '''
-Copyright (C) 2019  Helge Staedtler from Open Reply GmbH
+Copyright (C) 2019-2020  Helge Staedtler from Open Reply GmbH
 This program comes with ABSOLUTELY NO WARRANTY
 This is free software, and you are welcome to redistribute it
 under certain conditions. DETAILS in the LICENSE file!
@@ -1091,8 +1091,8 @@ def bitbucket_api_get_repos_20( username, password, team ):
         while index < len( values ) :
             current_value = values[ index ]
             index += 1
-            current_repo_name = current_value['name']
-            # printstyled( "{}. {}".format( (index_offset+index), current_repo_name), 'green' )
+            current_repo_slug = current_value['slug']
+            # printstyled( "{}. {}".format( (index_offset+index), current_repo_slug), 'green' )
             repos.append( current_value )
         current_page_index += 1
     return repos
@@ -1155,18 +1155,18 @@ def bitbucket_analyze( repos ):
     printstyled( 'BACKUP: ESTIMATED STORAGE SIZE NEEDED {} ({} bytes)'.format( sizeof_fmt( estimated_size_bytes ), estimated_size_bytes ), 'white' )
 
     for repo in repos:
-        repo_name = repo['name']
-        BACKUP_LOCAL_REPO_PATH = os.path.abspath( os.path.join( BACKUP_LOCAL_PATH, repo_name ) )
+        repo_slug = repo['slug']
+        BACKUP_LOCAL_REPO_PATH = os.path.abspath( os.path.join( BACKUP_LOCAL_PATH, repo_slug ) )
 
         if os.path.exists( BACKUP_LOCAL_REPO_PATH ) and repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_DONE ):
-            printstyled( 'SECURED: {}'.format( repo_name ), 'green' )
+            printstyled( 'SECURED: {}'.format( repo_slug ), 'green' )
             counted_done += 1
         else:
             if os.path.exists( BACKUP_LOCAL_REPO_PATH ) or repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_SYNC ):
-                printstyled( 'ABORTED: {}'.format( repo_name ), 'yellow' )
+                printstyled( 'ABORTED: {}'.format( repo_slug ), 'yellow' )
                 counted_sync += 1
             else:
-                printstyled( 'MISSING: {}'.format( repo_name ), 'red' )
+                printstyled( 'MISSING: {}'.format( repo_slug ), 'red' )
                 counted_fail += 1
         counted += 1
     printstyled( "BACKUP: ANALYZED \'{}\'.".format( BACKUP_ARCHIVE_DIRECTORY ), 'cyan' )
@@ -1216,13 +1216,13 @@ def bitbucket_clone( repos ):
     printstyled( 'BACKUP: ESTIMATED STORAGE SIZE NEEDED {} ({} bytes)'.format( sizeof_fmt( estimated_size_bytes ), estimated_size_bytes ), 'white' )
 
     for repo in repos:
-        repo_name = repo['name']
-        BACKUP_LOCAL_REPO_PATH = os.path.abspath( os.path.join( BACKUP_LOCAL_PATH, repo_name ) )
+        repo_slug = repo['slug']
+        BACKUP_LOCAL_REPO_PATH = os.path.abspath( os.path.join( BACKUP_LOCAL_PATH, repo_slug ) )
 
         # STEP 1: check if repo marked as SYNC/FAIL
         # STEP 2: remove repo folder and tags
         # STEP 3: add SYNC and go
-        print( 'Cloning repo {} of {}. — {}'.format(i, len(repos), repo_name) )
+        print( 'Cloning repo {} of {}. — {}'.format(i, len(repos), repo_slug) )
         if repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_SYNC ) or repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_FAIL ):
             try:
                 shutil.rmtree( BACKUP_LOCAL_REPO_PATH )
@@ -1243,13 +1243,9 @@ def bitbucket_clone( repos ):
                 num_of_tries +=1
                 mark_repo_sync( BACKUP_LOCAL_REPO_PATH )
                 try:
-                    REMOTE_REPO_PATH = 'git@bitbucket.org:{}/{}.git'.format( CONFIG_TEAM, repo_name)
-                    current_repo = Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH )
-
-                    if BACKUP_ALL_BRANCHES:
-                        # https://stackoverflow.com/a/54047645/1998692
-                        for b in current_repo.remote().fetch():
-                            current_repo.git.checkout('-B', b.name.split('/')[1], b.name)
+                    REMOTE_REPO_PATH = 'git@bitbucket.org:{}/{}.git'.format( CONFIG_TEAM, repo_slug)
+                    # no_single_branch=True will backup all branches
+                    current_repo = Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH, no_single_branch=BACKUP_ALL_BRANCHES )
 
                     was_cloning_fail = False
                     success_clone = success_clone + 1
@@ -1258,7 +1254,7 @@ def bitbucket_clone( repos ):
                 except Exception as e:
                     mark_repo_fail( BACKUP_LOCAL_REPO_PATH, str( e ) )
                     was_cloning_fail = True
-                    printstyled( 'Unable to clone repo {}. Exception: {}'.format( repo_name, e ), 'red' )
+                    printstyled( 'Unable to clone repo {}. Exception: {}'.format( repo_slug, e ), 'red' )
             if was_cloning_fail:
                 repos_failed.append( repo )
         i = i + 1
