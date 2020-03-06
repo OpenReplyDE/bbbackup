@@ -84,11 +84,11 @@ APP_VERSION = "v1.3"
 APP_PATH = os.path.dirname( os.path.abspath( __file__ ) )
 APP_CONFIG_FILE = 'bbbackup.cfg'
 APP_LOGO = '''
-  _    _    _             _             
- | |__| |__| |__  __ _ __| |___  _ _ __ 
+  _    _    _             _
+ | |__| |__| |__  __ _ __| |___  _ _ __
  | '_ \ '_ \ '_ \/ _` / _| / / || | '_ \\
  |_.__/_.__/_.__/\__,_\__|_\_\\\\_,_| .__/
-                             {} |_|   
+                             {} |_|
                                   '''
 
 APP_COPYRIGHT_NOTICE = '''
@@ -114,6 +114,7 @@ AUTH_METHOD_UIDPWD = 'uidpwd'
 # DEFAULTS
 DEFAULT_API_USED = '2.0' # '1.0' is deprecated
 DEFAULT_AUTH = AUTH_METHOD_UIDPWD
+DEFAULT_BACKUP_ALL_BRANCHES = False
 DEFAULT_BACKUP_ROOT_DIRECTORY = ''
 DEFAULT_BACKUP_MAX_RETRIES = 3
 DEFAULT_BACKUP_MAX_FAILS = 3
@@ -351,6 +352,7 @@ def configuration_print():
     printstyled( '{}: {}'.format( "CONFIG_TEAM", CONFIG_TEAM ), 'blue' )
     printstyled( '{}: {}'.format( "SLACK_API_TOKEN", SLACK_API_TOKEN ), 'blue' )
     printstyled( '{}: {}'.format( "SLACK_CHANNEL", SLACK_CHANNEL ), 'blue' )
+    printstyled( '{}: {}'.format( "BACKUP_ALL_BRANCHES", BACKUP_ALL_BRANCHES ), 'blue' )
     printstyled( '{}: {}'.format( "BACKUP_ROOT_DIRECTORY", BACKUP_ROOT_DIRECTORY ), 'blue' )
     printstyled( '{}: {}'.format( "BACKUP_MAX_RETRIES", BACKUP_MAX_RETRIES ), 'blue' )
     printstyled( '{}: {}'.format( "BACKUP_MAX_FAILS", BACKUP_MAX_FAILS ), 'blue' )
@@ -362,6 +364,7 @@ def configuration_print():
 def configuration_import():
     global AUTH, OAUTH_CLIENT_KEY_OR_ID, OAUTH_CLIENT_SECRET, OAUTH_CLIENT_NAME, CONFIG_UID, CONFIG_PWD, CONFIG_TEAM
     global SLACK_API_TOKEN, SLACK_CHANNEL, BACKUP_ROOT_DIRECTORY, BACKUP_MAX_RETRIES, BACKUP_MAX_FAILS, BACKUP_MIN_FREESPACE_GIGA, BACKUP_STORE_DAYS
+    global BACKUP_ALL_BRANCHES
 
     CONFIG_FILE_PATH = APP_PATH+'/'+APP_CONFIG_FILE
     if not os.path.exists( CONFIG_FILE_PATH ):
@@ -376,6 +379,7 @@ def configuration_import():
         CONFIG_TEAM                 = None
         SLACK_API_TOKEN             = None
         SLACK_CHANNEL               = None
+        BACKUP_ALL_BRANCHES         = DEFAULT_BACKUP_ALL_BRANCHES
         BACKUP_ROOT_DIRECTORY       = DEFAULT_BACKUP_ROOT_DIRECTORY
         BACKUP_MAX_RETRIES          = DEFAULT_BACKUP_MAX_RETRIES
         BACKUP_MAX_FAILS            = DEFAULT_BACKUP_MAX_FAILS
@@ -407,6 +411,7 @@ def configuration_import():
         CONFIG_TEAM                 = config_file.get( 'bitbucket_account', 'teamname' )
         SLACK_API_TOKEN             = config_file.get( 'slack', 'api_token' )
         SLACK_CHANNEL               = config_file.get( 'slack', 'channel_to_post' )
+        BACKUP_ALL_BRANCHES         = config_file.get( 'backup', 'all_branches' )
         BACKUP_ROOT_DIRECTORY       = config_file.get( 'backup', 'filepath' )
         BACKUP_MAX_RETRIES          = config_file.getint( 'backup', 'max_retries' )
         BACKUP_MAX_FAILS            = config_file.getint( 'backup', 'max_fails' )
@@ -443,7 +448,7 @@ def configuration_export():
     # STORE account
     config_file.add_section( 'bitbucket_account' )
     config_file.set( 'bitbucket_account', '; ENTER YOUR CREDENTIALS FOR BITBUCKET HERE, USE SAME FOR USER AND TEAM IF YOU WANT USER' )
-    config_file.set( 'bitbucket_account', '; PASSWORD IS ONLY NEEDED IF \'authorization\' USES \'uidpwd\' (NOT RECOMMENDED!)' )    
+    config_file.set( 'bitbucket_account', '; PASSWORD IS ONLY NEEDED IF \'authorization\' USES \'uidpwd\' (NOT RECOMMENDED!)' )
     config_file.set( 'bitbucket_account', 'userid', configuration_stringify( CONFIG_UID ) )
     config_file.set( 'bitbucket_account', 'password', configuration_stringify( CONFIG_PWD ) )
     config_file.set( 'bitbucket_account', 'teamname', configuration_stringify( CONFIG_TEAM ) )
@@ -455,6 +460,7 @@ def configuration_export():
     # STORE backup
     config_file.add_section( 'backup' )
     config_file.set( 'backup', '; ENTER BACKUP RELATED PARAMETERS HERE, I.E. FILEPATH TO DIRECTORY WHERE TO STORE BACKUPS' )
+    config_file.set( 'backup', 'backup_all_branches', configuration_stringify( BACKUP_ALL_BRANCHES ))
     config_file.set( 'backup', 'filepath', configuration_stringify( BACKUP_ROOT_DIRECTORY ) )
     config_file.set( 'backup', 'max_retries', configuration_stringify( BACKUP_MAX_RETRIES ) )
     config_file.set( 'backup', 'max_fails', configuration_stringify( BACKUP_MAX_FAILS ) )
@@ -486,7 +492,7 @@ def slack_send_message_to_channel( message, channel ):
     if not notify_mode:
         if log_mode:
             if SLACK_API_TOKEN:
-                printstyled( 'SLACK: SUPRESSING NOTIFICATION\n>>>\n' + message + '\n<<<', 'white' )            
+                printstyled( 'SLACK: SUPRESSING NOTIFICATION\n>>>\n' + message + '\n<<<', 'white' )
         return
     if SLACK_API_TOKEN == None:
         printstyled( 'SLACK: MISSING API TOKEN', 'red' )
@@ -535,7 +541,7 @@ def slack_selftest():
     slack_send_message_of_category( 'Nachrichtentest Failed', 'fail' )
     slack_send_message_of_category( 'Nachrichtentest Warning', 'warn' )
     slack_send_message_of_category( 'Nachrichtentest Okay', 'ok' )
-    slack_send_message_of_category( 'Nachrichtentest Information', 'info' )    
+    slack_send_message_of_category( 'Nachrichtentest Information', 'info' )
 
 # CHECK SLACK CONFIG
 def slack_config_load( should_ask = True ):
@@ -800,13 +806,13 @@ def backup_archive_system_stats():
     BACKUP_LOCAL_PATH =  os.path.abspath( os.path.join( BACKUP_ROOT_DIRECTORY, BACKUP_ARCHIVE_DIRECTORY ) )
     size_of_directory = get_size( BACKUP_LOCAL_PATH )
     string_dirsize = 'Storage size used by backup: {}'.format( sizeof_fmt( size_of_directory ) )
-    
+
     size_remaining = get_fs_freespace( BACKUP_ROOT_DIRECTORY )
     string_freespace = 'Storage size available on volume: {}'.format( sizeof_fmt( size_remaining ) )
-    
+
     size_of_root_directory = get_size( BACKUP_ROOT_DIRECTORY )
     string_rootsize = 'Storage size used over ALL backups: {}'.format( sizeof_fmt( size_of_root_directory ) )
-    
+
     return string_dirsize + '\n' + string_freespace + '\n' + string_rootsize
 
 # returns datetime of last run based on stored JSON datetime object
@@ -833,7 +839,7 @@ def backup_archive_num_of_repos_lastrun():
     except Exception as e:
         printstyled( 'LASTRUN: NUM OF REPOS NOT AVAILABLE. {}'.format( e ), 'red' )
     return num_of_repos
-       
+
 # save the date and time the last successful backup was completed
 # this is needed to detect issues of system clock/date/timezone
 # to not accidentially delete valid backups
@@ -871,7 +877,7 @@ def backup_archive_name_for_datetime_utc( timestamp_utc ):
     return BACKUP_ARCHIVE_PREFIX+"_"+str(timestamp_utc.year)+str(timestamp_utc.month).zfill(2)+str(timestamp_utc.day).zfill(2)+"_"+BACKUP_ARCHIVE_SUFFIX
     # +"_"+str(now.hour).zfill(2)+str(now.minute).zfill(2)
 
-# check existence 
+# check existence
 def backup_archive_exists_with_name( directory_name ):
     if not directory_name:
         return False
@@ -925,7 +931,7 @@ def bitbucket_api_oauth2_token():
     global OAUTH_CLIENT_NAME, OAUTH_CLIENT_KEY_OR_ID, OAUTH_CLIENT_SECRET
     printstyled( "BITBUCKET: Fetching OAuth 2.0 Token... ", 'magenta' )
     bitbucket_service = OAuth2Service(
-        client_id = OAUTH_CLIENT_KEY_OR_ID, 
+        client_id = OAUTH_CLIENT_KEY_OR_ID,
         client_secret = OAUTH_CLIENT_SECRET,
         name = OAUTH_CLIENT_NAME,
         authorize_url = OAUTH_URL_AUTORIZE,
@@ -974,7 +980,7 @@ def bitbucket_api_get_repos_20_oauth( username, password, team ):
     if not username or not team:
         exit_with_code( 2 )
     bitbucket_endpoint_repos = 'https://api.bitbucket.org/2.0/' + API_V2_REPOSITORIES + team + '/?'+ API_V2_PARAM_ROLE
-    
+
     # GET OVERVIEW OF HOW MANY REPOS AND PAGES TO FETCH...
     dict_request = None
     repos = []
@@ -997,7 +1003,7 @@ def bitbucket_api_get_repos_20_oauth( username, password, team ):
     num_of_repos = dict_request['size']
     num_of_page = dict_request['page']
     pagelen = dict_request['pagelen']
-    num_of_pages = math.ceil( num_of_repos / pagelen ) 
+    num_of_pages = math.ceil( num_of_repos / pagelen )
     printstyled( "Number of Repos = {}; Num of pages {}".format( num_of_repos, num_of_pages ), 'green' )
     return repos
 
@@ -1005,14 +1011,14 @@ def bitbucket_api_get_repos_20_oauth( username, password, team ):
 def bitbucket_api_get_repos_20( username, password, team ):
     role = 'role=member'
     bitbucket_endpoint_repos = 'https://api.bitbucket.org/2.0/' + API_V2_REPOSITORIES + team + '/?'+ API_V2_PARAM_ROLE
-    
+
     auth_mode_str = None
     if AUTH == AUTH_METHOD_UIDPWD:
         auth_mode_str = 'UID/PWD'
     elif AUTH == AUTH_METHOD_OAUTH2:
         auth_mode_str = 'OAUTH'
     printstyled( "BITBUCKET: Fetching list of repos ({})... ".format( auth_mode_str )+bitbucket_endpoint_repos, 'green' )
-    
+
     # GET OVERVIEW OF HOW MANY REPOS AND PAGES TO FETCH...
     dict_request = None
     repos = []
@@ -1043,13 +1049,13 @@ def bitbucket_api_get_repos_20( username, password, team ):
         num_of_repos = dict_request['size']
         num_of_page = dict_request['page']
         pagelen = dict_request['pagelen']
-        num_of_pages = math.ceil( num_of_repos / pagelen ) 
+        num_of_pages = math.ceil( num_of_repos / pagelen )
         printstyled( "Number of Repos = {}; Num of pages {}".format( num_of_repos, num_of_pages ), 'green' )
     except Exception as e:
         error_msg = 'BITBUCKET: API FAILED TO DELIVER EXPECTED DATA: {}\n{}'.format( raw_request.content.decode('utf-8'), e )
         printstyled( error_msg, 'red' )
         exit_with_code( 10, raw_request.content.decode('utf-8') )
-    
+
     # FETCH ALL PAGES OF REPOS
     current_page_index = 1
 
@@ -1135,7 +1141,7 @@ def bitbucket_analyze( repos ):
     else:
         if available_size_bytes - estimated_five_times < minimum_size_bytes:
             printstyled( 'BACKUP: FREE SPACE ON VOLUME RUNNING LOW {} / NEEDED {}'.format( sizeof_fmt( available_size_bytes ) , sizeof_fmt( minimum_size_bytes ) ), 'magenta', 'bold')
-        else: 
+        else:
             printstyled( 'BACKUP: FREE SPACE ON VOLUME {} / NEEDED {}'.format( sizeof_fmt( available_size_bytes ), sizeof_fmt( minimum_size_bytes ) ), 'green', 'bold')
 
 
@@ -1238,7 +1244,13 @@ def bitbucket_clone( repos ):
                 mark_repo_sync( BACKUP_LOCAL_REPO_PATH )
                 try:
                     REMOTE_REPO_PATH = 'git@bitbucket.org:{}/{}.git'.format( CONFIG_TEAM, repo_name)
-                    Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH )
+                    current_repo = Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH )
+
+                    if BACKUP_ALL_BRANCHES:
+                        # https://stackoverflow.com/a/54047645/1998692
+                        for b in current_repo.remote().fetch():
+                            current_repo.git.checkout('-B', b.name.split('/')[1], b.name)
+
                     was_cloning_fail = False
                     success_clone = success_clone + 1
                     repos_done.append( repo )
@@ -1253,7 +1265,7 @@ def bitbucket_clone( repos ):
     printstyled( 'Successfully cloned {} out of {} repos'.format(success_clone, len(repos)), 'blue')
     printstyled( "BACKUP: COMPLETE FOR \'{}\'.".format( BACKUP_ARCHIVE_DIRECTORY ), 'cyan' )
     stats_string = backup_archive_system_stats()
-    printstyled( '{}'.format( stats_string ), 'white' )            
+    printstyled( '{}'.format( stats_string ), 'white' )
 
     # list of failed repos
     slack_repos_failed_list = 'Following repos failed to backup:\n'
@@ -1466,7 +1478,7 @@ if not config_from_file:
         slack_config_load( True )
     else:
         slack_config_load( False )
-        
+
 if not CONFIG_TEAM:
     CONFIG_TEAM = CONFIG_UID
 
@@ -1491,13 +1503,13 @@ if config_from_file:
     printstyled( 'CONFIG: USING \'{}\' AS CONFIG...'.format( CONFIG_FILE_PATH ), 'cyan' )
     if not os.path.exists( CONFIG_FILE_PATH ):
         printstyled( 'CONFIG: ERROR, CONFIGURATION DOES NOT EXIST.', 'red' )
-        exit_with_code( 10, "Exited because we have no valid configuration" )        
+        exit_with_code( 10, "Exited because we have no valid configuration" )
     else:
         configuration_import()
 
 # BEGIN OF MAIN
 if __name__ == '__main__':
-        
+
     if SLACK_CHANNEL and SLACK_API_TOKEN:
         printstyled( 'SLACK: CONFIGURATION ...', 'cyan' )
         printstyled( 'CHANNEL: {}'.format( SLACK_CHANNEL ), 'blue' )
@@ -1544,7 +1556,7 @@ if __name__ == '__main__':
             backup_archive_rotate_with_days( BACKUP_STORE_DAYS, BACKUP_STORE_DAYS + BACKUP_STORE_DAYS_SCOPE )
         else:
             printstyled( "BACKUP: ROTATION-CONTEXT: INVALID.", 'red')
-        
+
         printstyled( "BACKUP: CLONING...", 'cyan')
         bitbucket_clone( repos )
     else:
