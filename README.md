@@ -26,10 +26,11 @@ The script supports following features:
 * Configure userid/teamname (password optional!) for accessing BitBucket repositories
 * Configure slack so the solution can message/report via slack channel
 * Execute full backup of all repositories belonging to a team or user
+* Optionally backup all branches not just master-branch
 * Notify about success/warnings/failure via slack
 * Execute post-backup analysis of existing backups (specific days & all backups available)
 * Automatically rotate backups in a certain timespan, e.g. 14 days
-* Monitor the free space remaning on the volume and configure limits for space usage
+* Monitor the free space remaining on the volume and configure limits for space usage
 * Configure retry-limit for retrys of failed cloning of repos
 * Configure error/fail-limit-threshold when to report the whole @channel in slack
 
@@ -95,7 +96,7 @@ install python modules required
 
 #### Configuration ####
 
-test if the main backup script is working by entering the following (this should give you the help page):  
+test if the main backup script is working by entering the following (this should give you the help page; you need to have the virtual environment active for this to work!):  
 `python bbbackup.py --help`
 
 edit the file `bbbackup.sh` and adjust all paths and adjust the parameters to backup  
