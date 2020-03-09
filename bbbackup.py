@@ -80,8 +80,9 @@ import math
 import traceback
 
 # CONSTANT VALUES
-APP_VERSION = "v1.4"
-APP_PATH = os.path.dirname( os.path.abspath( __file__ ) )
+APP_VERSION     = "v1.4"
+APP_BUILD       = "42"
+APP_PATH        = os.path.dirname( os.path.abspath( __file__ ) )
 APP_CONFIG_FILE = 'bbbackup.cfg'
 APP_LOGO = '''
   _    _    _             _
@@ -1274,7 +1275,8 @@ def bitbucket_clone( repos ):
 
     days_archived = backup_archive_days_archived( BACKUP_STORE_DAYS )
 
-    slack_msg = 'Backup of {} repos completed.\n'.format( len( repos ) )
+    slack_msg = 'bbbackup {} build {}\n'.format( APP_VERSION, APP_BUILD )
+    slack_msg += 'Backup of {} repos completed.\n'.format( len( repos ) )
     slack_msg += 'We keep backups for up to {} days into the past.\n'.format( BACKUP_STORE_DAYS )
     slack_msg += 'We have build up an archive which now stores {} full days.\n'.format( days_archived )
     slack_msg += '```' + stats_string + '```'
