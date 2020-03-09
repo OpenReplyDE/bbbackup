@@ -1244,8 +1244,11 @@ def bitbucket_clone( repos ):
                 mark_repo_sync( BACKUP_LOCAL_REPO_PATH )
                 try:
                     REMOTE_REPO_PATH = 'git@bitbucket.org:{}/{}.git'.format( CONFIG_TEAM, repo_slug)
-                    # no_single_branch=True will backup all branches
-                    current_repo = Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH, no_single_branch=BACKUP_ALL_BRANCHES )
+                    # --no-single-branch Option added will backup all branches
+                    if BACKUP_ALL_BRANCHES:
+                        current_repo = Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH, no_single_branch=True )
+                    else:
+                        current_repo = Repo.clone_from( REMOTE_REPO_PATH, BACKUP_LOCAL_REPO_PATH )
 
                     was_cloning_fail = False
                     success_clone = success_clone + 1
