@@ -1120,6 +1120,21 @@ FROM API 1.0 WE GET
 }
 '''
 
+def repo_fix( repo_name ):
+    if " " in repo_name:
+        repo_name = repo_name.replace(' & ', '-')
+        repo_name = repo_name.replace(' - ','-')
+        repo_name = repo_name.replace(' ', '-').lower()
+
+    repo_name = repo_name.replace(']', '').lower()
+    repo_name = repo_name.replace('[', '')
+    repo_name = repo_name.replace('/', '-')
+    repo_name = repo_name.replace('(', '-')
+    repo_name = repo_name.replace(')', '')
+    repo_name = repo_name.replace('#', '')
+    return repo_name
+
+
 # ANALYZE EXISTING LOCAL REPOSITORIES COMPARED TO REMOTE REPOSITORIES (SAME DAY)
 def bitbucket_analyze( repos ):
     counted = 0
@@ -1157,6 +1172,7 @@ def bitbucket_analyze( repos ):
 
     for repo in repos:
         repo_slug = repo['slug']
+        repo_slug = repo_fix(repo_slug)
         BACKUP_LOCAL_REPO_PATH = os.path.abspath( os.path.join( BACKUP_LOCAL_PATH, repo_slug ) )
 
         if os.path.exists( BACKUP_LOCAL_REPO_PATH ) and repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_DONE ):
@@ -1218,6 +1234,7 @@ def bitbucket_clone( repos ):
 
     for repo in repos:
         repo_slug = repo['slug']
+        repo_slug = repo_fix(repo_slug)
         BACKUP_LOCAL_REPO_PATH = os.path.abspath( os.path.join( BACKUP_LOCAL_PATH, repo_slug ) )
 
         # STEP 1: check if repo marked as SYNC/FAIL
