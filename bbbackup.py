@@ -256,8 +256,9 @@ def ensure_directory_exists( absolute_dir_path ):
 
 def get_fs_freespace( pathname ):
     "Get the free space of the filesystem containing pathname"
-    stat = os.statvfs( pathname )
-    return stat.f_bavail * stat.f_frsize
+    import shutil
+    total, used, free = shutil.disk_usage( pathname )
+    return free
 
 def sizeof_fmt(num, suffix='B'):
     for unit in ['','k','M','G','T','P','E','Z']:
