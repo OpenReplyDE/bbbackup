@@ -57,7 +57,6 @@ from git import Repo
 from requests.auth import HTTPBasicAuth
 from datetime import datetime
 from datetime import timedelta
-from datetime import date
 from getpass import getpass
 from slack.errors import SlackApiError
 from rauth import OAuth2Service
@@ -69,10 +68,8 @@ import json
 import os
 import requests
 import sys
-import time
 import keyring
 import errno
-import unicodedata
 import shutil
 import signal
 import slack
@@ -84,7 +81,7 @@ APP_VERSION     = "v1.4"
 APP_BUILD       = "42"
 APP_PATH        = os.path.dirname( os.path.abspath( __file__ ) )
 APP_CONFIG_FILE = 'bbbackup.cfg'
-APP_LOGO = '''
+APP_LOGO = r'''
   _    _    _             _
  | |__| |__| |__  __ _ __| |___  _ _ __
  | '_ \ '_ \ '_ \/ _` / _| / / || | '_ \\
@@ -145,6 +142,7 @@ CRED_KEY_OAUTH_NAME = "OAUTH_NAME"
 BACKUP_ARCHIVE_PREFIX = "BACKUP"
 BACKUP_ARCHIVE_SUFFIX = "UTC"
 BACKUP_ARCHIVE_DIRECTORY = None
+BACKUP_ALL_BRANCHES = DEFAULT_BACKUP_ALL_BRANCHES
 BACKUP_ROOT_DIRECTORY = DEFAULT_BACKUP_ROOT_DIRECTORY
 BACKUP_MAX_RETRIES = DEFAULT_BACKUP_MAX_RETRIES
 BACKUP_MAX_FAILS = DEFAULT_BACKUP_MAX_FAILS
@@ -323,7 +321,7 @@ def write_file( filename, content ):
 def delete_file( filename ):
     try:
         os.remove( filename )
-    except:
+    except Exception:
         printstyled( 'FAILED TO DELETE FILE: {}'.format( filename ), 'red' )
     return
 
@@ -365,7 +363,7 @@ def configuration_print():
 def configuration_import():
     global AUTH, OAUTH_CLIENT_KEY_OR_ID, OAUTH_CLIENT_SECRET, OAUTH_CLIENT_NAME, CONFIG_UID, CONFIG_PWD, CONFIG_TEAM
     global SLACK_API_TOKEN, SLACK_CHANNEL, BACKUP_ROOT_DIRECTORY, BACKUP_MAX_RETRIES, BACKUP_MAX_FAILS, BACKUP_MIN_FREESPACE_GIGA, BACKUP_STORE_DAYS
-    global BACKUP_ALL_BRANCHES
+    global LOG_OUTPUT, LOG_COLORIZED, BACKUP_ALL_BRANCHES
 
     CONFIG_FILE_PATH = APP_PATH+'/'+APP_CONFIG_FILE
     if not os.path.exists( CONFIG_FILE_PATH ):
@@ -426,7 +424,7 @@ def configuration_import():
     printstyled( 'CONFIG I/O: Config \'{}\' succesfully imported.'.format( CONFIG_FILE_PATH ), 'green' )
 
 def configuration_stringify( value ):
-    if value == None:
+    if value is None:
         return ""
     else:
         return "{}".format( value )
@@ -495,7 +493,7 @@ def slack_send_message_to_channel( message, channel ):
             if SLACK_API_TOKEN:
                 printstyled( 'SLACK: SUPRESSING NOTIFICATION\n>>>\n' + message + '\n<<<', 'white' )
         return
-    if SLACK_API_TOKEN == None:
+    if SLACK_API_TOKEN is None:
         printstyled( 'SLACK: MISSING API TOKEN', 'red' )
     else:
         if message:
@@ -509,7 +507,7 @@ def slack_send_message_to_channel( message, channel ):
                 channel = '#random'
             if client:
                 try:
-                    response = client.chat_postMessage( channel=channel,text=message, link_names=True, mrkdwn=True )
+                    client.chat_postMessage( channel=channel,text=message, link_names=True, mrkdwn=True )
                     printstyled( 'SLACK: MESSAGE WAS SENT.', 'green' )
                 except SlackApiError as e:
                     printstyled( 'SLACK: API CONNECTION ERROR. EXCEPTION: {}'.format( e ), 'red' )
@@ -561,7 +559,7 @@ def slack_config_load( should_ask = True ):
     if not should_ask:
         return
 
-    if SLACK_API_TOKEN == None or SLACK_CHANNEL == None:
+    if SLACK_API_TOKEN is None or SLACK_CHANNEL is None:
         printstyled( 'SLACK: CONFIG NOT FOUND.', 'red' )
         if is_running_interactively() and slackconfig:
             print( "---    PLEASE ENTER SLACK CHANNEL AND API TOKEN NOW    ---" )
@@ -599,7 +597,7 @@ def slack_config_reset():
         SLACK_API_TOKEN = None
         SLACK_CHANNEL = None
         printstyled( 'SLACK: REMOVED.', 'cyan' )
-    except:
+    except Exception:
         printstyled( 'SLACK: NO CREDENTIALS TO REMOVE.', 'red' )
 
     slack_config_load()
@@ -627,7 +625,7 @@ def oauth_config_load( should_ask = True ):
     if not should_ask:
         return
 
-    if OAUTH_CLIENT_NAME == None or OAUTH_CLIENT_KEY_OR_ID == None or OAUTH_CLIENT_SECRET == None:
+    if OAUTH_CLIENT_NAME is None or OAUTH_CLIENT_KEY_OR_ID is None or OAUTH_CLIENT_SECRET is None:
         printstyled( 'OAUTH: CONFIG NOT FOUND.', 'red' )
         if is_running_interactively():
             print( "---  PLEASE ENTER OAUTH NAME/KEY/SECRET FOR BITBUCKET  ---" )
@@ -670,7 +668,7 @@ def oauth_config_reset():
         OAUTH_CLIENT_KEY_OR_ID = None
         OAUTH_CLIENT_SECRET = None
         printstyled( 'OAUTH: REMOVED.', 'cyan' )
-    except:
+    except Exception:
         printstyled( 'OAUTH: NO CREDENTIALS TO REMOVE.', 'red' )
 
     oauth_config_load()
@@ -700,7 +698,7 @@ def bitbucket_config_load( should_ask = True ):
     if not should_ask:
         return
 
-    if CONFIG_UID == None or CONFIG_PWD == None:
+    if CONFIG_UID is None or CONFIG_PWD is None:
         printstyled( 'BITBUCKET: NOT CONFIGURED.', 'red' )
         if is_running_interactively():
             print( "--- PLEASE ENTER CREDENTIALS FOR BITBUCKET ACCOUNT NOW ---" )
@@ -727,6 +725,7 @@ def bitbucket_config_load( should_ask = True ):
 
 # REMOVES ALL STORED CREDENTIALS FROM SECURE STORAGE
 def bitbucket_config_reset():
+    global CONFIG_UID, CONFIG_PWD, CONFIG_TEAM
     printstyled( 'BITBUCKET: RESETTING CONFIG...', 'cyan' )
     ring = None
     try:
@@ -742,7 +741,7 @@ def bitbucket_config_reset():
         CONFIG_PWD = None
         CONFIG_TEAM = None
         printstyled( 'BITBUCKET: CONFIG REMOVED.', 'cyan' )
-    except:
+    except Exception:
         printstyled( 'BITBUCKET: NO CREDENTIALS TO REMOVE.', 'red' )
 
     bitbucket_config_load()
@@ -760,7 +759,7 @@ def repo_status_set( repo_path, status, content ):
     filename_status = "{}.{}".format( repo_path, status )
     if os.path.exists( filename_status ):
         os.remove( filename_status )
-    if content == None:
+    if content is None:
         content = status
     write_file( filename_status, content )
 
@@ -969,7 +968,7 @@ def bitbucket_api_get_repos_10( username, password, team ):
         dict_request = json.loads( raw_request.content.decode('utf-8') )
 
         repos = dict_request['repositories']
-    except Exception as e:
+    except Exception:
         error_msg = 'BITBUCKET: CONNECTION FAILED. — HTTP STATUS CODE: {}'.format( str(statuscode) )
         printstyled( error_msg, 'red' )
         if backup:
@@ -993,7 +992,7 @@ def bitbucket_api_get_repos_20_oauth( username, password, team ):
     try:
         raw_request = requests.get( bitbucket_endpoint_repos, headers = bitbucket_api_oauth2_header_with_token( oauth_token ) )
         statuscode = raw_request.status_code
-    except Exception as e:
+    except Exception:
         error_msg = 'BITBUCKET: CONNECTION FAILED. — HTTP STATUS CODE: {}'.format( str(statuscode) )
         printstyled( error_msg, 'red' )
         if backup:
@@ -1002,7 +1001,6 @@ def bitbucket_api_get_repos_20_oauth( username, password, team ):
 
     dict_request = json.loads( raw_request.content.decode('utf-8') )
     num_of_repos = dict_request['size']
-    num_of_page = dict_request['page']
     pagelen = dict_request['pagelen']
     num_of_pages = math.ceil( num_of_repos / pagelen )
     printstyled( "Number of Repos = {}; Num of pages {}".format( num_of_repos, num_of_pages ), 'green' )
@@ -1010,7 +1008,6 @@ def bitbucket_api_get_repos_20_oauth( username, password, team ):
 
 # FETCH LIST OF REPOSITORIES (API 2.0)
 def bitbucket_api_get_repos_20( username, password, team ):
-    role = 'role=member'
     bitbucket_endpoint_repos = 'https://api.bitbucket.org/2.0/' + API_V2_REPOSITORIES + team + '/?'+ API_V2_PARAM_ROLE
 
     auth_mode_str = None
@@ -1048,7 +1045,6 @@ def bitbucket_api_get_repos_20( username, password, team ):
     try:
         dict_request = json.loads( raw_request.content.decode('utf-8') )
         num_of_repos = dict_request['size']
-        num_of_page = dict_request['page']
         pagelen = dict_request['pagelen']
         num_of_pages = math.ceil( num_of_repos / pagelen )
         printstyled( "Number of Repos = {}; Num of pages {}".format( num_of_repos, num_of_pages ), 'green' )
@@ -1070,7 +1066,7 @@ def bitbucket_api_get_repos_20( username, password, team ):
             elif AUTH == AUTH_METHOD_OAUTH2:
                 raw_request = requests.get( bitbucket_api_call, headers = bitbucket_api_oauth2_header_with_token( oauth_token ) )
             statuscode = raw_request.status_code
-        except Exception as e:
+        except Exception:
             error_msg = 'BITBUCKET: CONNECTION FAILED. — HTTP STATUS CODE: {}'.format( str(statuscode) )
             printstyled( error_msg, 'red' )
             if backup:
@@ -1082,17 +1078,17 @@ def bitbucket_api_get_repos_20( username, password, team ):
             dict_request = json.loads( raw_request.content.decode('utf-8') )
             # NOW COLLECT REPO INFO
             values = dict_request['values']
-        except Exception as e:
+        except Exception:
             error_msg = 'BITBUCKET: API FAILED TO DELIVER EXPECTED REPO-DATA: {}'.format( raw_request.content.decode('utf-8') )
             printstyled( error_msg, 'red' )
             exit_with_code( 11, raw_request.content.decode('utf-8') )
 
         index = 0
-        index_offset = (current_page_index - 1) * pagelen
+        # index_offset = (current_page_index - 1) * pagelen
         while index < len( values ) :
             current_value = values[ index ]
             index += 1
-            current_repo_slug = current_value['slug']
+            # current_repo_slug = current_value['slug']
             # printstyled( "{}. {}".format( (index_offset+index), current_repo_slug), 'green' )
             repos.append( current_value )
         current_page_index += 1
@@ -1227,7 +1223,7 @@ def bitbucket_clone( repos ):
         if repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_SYNC ) or repo_status_is( BACKUP_LOCAL_REPO_PATH, STATUS_FAIL ):
             try:
                 shutil.rmtree( BACKUP_LOCAL_REPO_PATH )
-            except:
+            except Exception:
                 printstyled( 'ERROR REMOVING DIRECTORY: {}'.format( BACKUP_LOCAL_REPO_PATH ), 'red' )
             mark_repo_clear( BACKUP_LOCAL_REPO_PATH )
 
@@ -1520,7 +1516,7 @@ if __name__ == '__main__':
         slack_send_message_to_channel( message_slack, SLACK_CHANNEL )
 
     try:
-        operation_mode_str = "BACKUP" if (backup == True) else "ANALYZE"
+        operation_mode_str = "BACKUP" if (backup is True) else "ANALYZE"
         printstyled( 'BITBUCKET: CONNECTING TO {}...'.format( operation_mode_str ), 'cyan' )
         if AUTH == AUTH_METHOD_UIDPWD:
             printstyled( '   USER: {}'.format( CONFIG_UID ), 'blue' )
