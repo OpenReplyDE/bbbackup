@@ -271,7 +271,8 @@ def get_size( dir_path ):
     for dirpath, dirnames, filenames in os.walk( dir_path ):
         for f in filenames:
             fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
+            if os.path.isfile(fp):
+              total_size += os.path.getsize(fp)
     return total_size
 
 # HELPER TO COLORIZE PRINT OUTPUT
